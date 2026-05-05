@@ -28,7 +28,7 @@ func (s *Store) InsertOddsRaw(ctx context.Context, matchID, source string, paylo
 	return err
 }
 
-func (s *Store) UpsertOddsNormalized(ctx context.Context, odds []NormalizedOdds) error {
+func (s *Store) InsertOddsNormalized(ctx context.Context, odds []NormalizedOdds) error {
 	for _, o := range odds {
 		_, err := s.pool.Exec(ctx, `
 			INSERT INTO odds_normalized (match_id, bookmaker, market, odds_home, odds_draw, odds_away)
