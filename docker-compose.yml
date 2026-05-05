@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sportstips
+      POSTGRES_PASSWORD: sportstips
+      POSTGRES_DB: sportstips
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sportstips"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ml:
+    build:
+      context: ./ml
+    profiles: ["ml"]
+    env_file: .env
+
+volumes:
+  pgdata:
