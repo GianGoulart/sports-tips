@@ -41,7 +41,7 @@ func (s *Store) GetActiveMatches(ctx context.Context) ([]Match, error) {
 	}
 	defer rows.Close()
 
-	var matches []Match
+	matches := []Match{}
 	for rows.Next() {
 		var m Match
 		if err := rows.Scan(&m.ID, &m.ExternalID, &m.Sport, &m.League,
