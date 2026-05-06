@@ -7,14 +7,14 @@ import (
 )
 
 type Signal struct {
-	ID         string
-	TenantID   string
-	MatchID    string
-	Type       string
-	Market     string
-	Data       json.RawMessage
-	Confidence float64
-	CreatedAt  time.Time
+	ID         string          `json:"id"`
+	TenantID   string          `json:"tenant_id"`
+	MatchID    string          `json:"match_id"`
+	Type       string          `json:"type"`
+	Market     string          `json:"market"`
+	Data       json.RawMessage `json:"data"`
+	Confidence float64         `json:"confidence"`
+	CreatedAt  time.Time       `json:"created_at"`
 }
 
 func (s *Store) InsertSignals(ctx context.Context, tenantID string, signals []Signal) error {

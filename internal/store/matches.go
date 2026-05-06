@@ -6,15 +6,15 @@ import (
 )
 
 type Match struct {
-	ID          string
-	ExternalID  string
-	Sport       string
-	League      string
-	HomeTeam    string
-	AwayTeam    string
-	StartsAt    time.Time
-	Status      string
-	LastFetched *time.Time
+	ID          string     `json:"id"`
+	ExternalID  string     `json:"external_id"`
+	Sport       string     `json:"sport"`
+	League      string     `json:"league"`
+	HomeTeam    string     `json:"home_team"`
+	AwayTeam    string     `json:"away_team"`
+	StartsAt    time.Time  `json:"starts_at"`
+	Status      string     `json:"status"`
+	LastFetched *time.Time `json:"last_fetched,omitempty"`
 }
 
 func (s *Store) UpsertMatch(ctx context.Context, m Match) error {

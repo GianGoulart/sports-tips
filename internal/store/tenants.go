@@ -15,12 +15,12 @@ type Tenant struct {
 }
 
 type TenantPreferences struct {
-	TenantID     string
-	MinArbProfit float64
-	MinValueEdge float64
-	TelegramID   *string
-	Email        *string
-	Bookmakers   []string
+	TenantID     string   `json:"tenant_id"`
+	MinArbProfit float64  `json:"min_arb_profit"`
+	MinValueEdge float64  `json:"min_value_edge"`
+	TelegramID   *string  `json:"alert_telegram_id,omitempty"`
+	Email        *string  `json:"alert_email,omitempty"`
+	Bookmakers   []string `json:"bookmakers"`
 }
 
 func (s *Store) CreateTenant(ctx context.Context, t Tenant) (*Tenant, error) {

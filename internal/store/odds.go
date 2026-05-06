@@ -7,14 +7,14 @@ import (
 )
 
 type NormalizedOdds struct {
-	ID        string
-	MatchID   string
-	Bookmaker string
-	Market    string
-	OddsHome  float64
-	OddsDraw  float64
-	OddsAway  float64
-	Timestamp time.Time
+	ID        string    `json:"id"`
+	MatchID   string    `json:"match_id"`
+	Bookmaker string    `json:"bookmaker"`
+	Market    string    `json:"market"`
+	OddsHome  float64   `json:"odds_home"`
+	OddsDraw  float64   `json:"odds_draw"`
+	OddsAway  float64   `json:"odds_away"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func (s *Store) InsertOddsRaw(ctx context.Context, matchID, source string, payload any) error {
