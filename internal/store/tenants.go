@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -24,7 +25,13 @@ type TenantPreferences struct {
 }
 
 func (s *Store) CreateTenant(ctx context.Context, t Tenant) (*Tenant, error) {
-	err := s.pool.QueryRow(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	err = tx.QueryRow(ctx, `
 		INSERT INTO tenants (email, name, password)
 		VALUES ($1, $2, $3)
 		RETURNING id, email, name, password, plan, created_at
@@ -34,13 +41,16 @@ func (s *Store) CreateTenant(ctx context.Context, t Tenant) (*Tenant, error) {
 		return nil, err
 	}
 
-	_, err = s.pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		INSERT INTO tenant_preferences (tenant_id) VALUES ($1)
 	`, t.ID)
 	if err != nil {
 		return nil, err
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
 	return &t, nil
 }
 

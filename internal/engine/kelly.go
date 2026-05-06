@@ -9,6 +9,9 @@ type KellyResult struct {
 }
 
 func Kelly(odds, modelProb float64) KellyResult {
+	if odds <= 1.0 || modelProb <= 0 || modelProb >= 1 {
+		return KellyResult{}
+	}
 	impliedProb := 1.0 / odds
 	edge := modelProb - impliedProb
 

@@ -40,9 +40,3 @@ func RunMigrations(databaseURL string) error {
 	return nil
 }
 
-// setTenant injects tenant_id into session for RLS.
-func (s *Store) setTenant(ctx context.Context, tenantID string) error {
-	_, err := s.pool.Exec(ctx,
-		"SELECT set_config('app.tenant_id', $1, true)", tenantID)
-	return err
-}

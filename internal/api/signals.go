@@ -8,6 +8,10 @@ import (
 
 func (h *Handler) listSignals(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	sigType := r.URL.Query().Get("type")
 
 	signals, err := h.store.GetSignals(r.Context(), claims.TenantID, sigType)

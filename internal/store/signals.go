@@ -31,10 +31,7 @@ func (s *Store) InsertSignals(ctx context.Context, tenantID string, signals []Si
 }
 
 func (s *Store) GetSignals(ctx context.Context, tenantID, sigType string) ([]Signal, error) {
-	if err := s.setTenant(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
+	// tenant isolation enforced by WHERE tenant_id = $1
 	query := `
 		SELECT id, tenant_id, match_id, type, market, data, confidence, created_at
 		FROM signals WHERE tenant_id = $1
@@ -53,7 +50,7 @@ func (s *Store) GetSignals(ctx context.Context, tenantID, sigType string) ([]Sig
 	}
 	defer rows.Close()
 
-	result := []Signal{}
+	var result []Signal
 	for rows.Next() {
 		var sig Signal
 		if err := rows.Scan(&sig.ID, &sig.TenantID, &sig.MatchID, &sig.Type,
@@ -66,9 +63,7 @@ func (s *Store) GetSignals(ctx context.Context, tenantID, sigType string) ([]Sig
 }
 
 func (s *Store) GetSignalsByMatch(ctx context.Context, tenantID, matchID string) ([]Signal, error) {
-	if err := s.setTenant(ctx, tenantID); err != nil {
-		return nil, err
-	}
+	// tenant isolation enforced by WHERE tenant_id = $1
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, tenant_id, match_id, type, market, data, confidence, created_at
 		FROM signals WHERE tenant_id = $1 AND match_id = $2
@@ -79,7 +74,7 @@ func (s *Store) GetSignalsByMatch(ctx context.Context, tenantID, matchID string)
 	}
 	defer rows.Close()
 
-	result := []Signal{}
+	var result []Signal
 	for rows.Next() {
 		var sig Signal
 		if err := rows.Scan(&sig.ID, &sig.TenantID, &sig.MatchID, &sig.Type,

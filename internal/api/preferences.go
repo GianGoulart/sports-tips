@@ -18,6 +18,10 @@ type preferencesRequest struct {
 
 func (h *Handler) updatePreferences(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	var req preferencesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

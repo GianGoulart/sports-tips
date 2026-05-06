@@ -48,7 +48,15 @@ func checkArb(matchID, market string, odds []store.NormalizedOdds, minProfitPct 
 		return nil
 	}
 
-	arbSum := (1 / best.HomeOdds) + (1 / best.DrawOdds) + (1 / best.AwayOdds)
+	// Two-outcome market (e.g. over/under): no draw, use only home+away
+	isTwoOutcome := best.DrawOdds == 0
+	var arbSum float64
+	if isTwoOutcome {
+		arbSum = (1 / best.HomeOdds) + (1 / best.AwayOdds)
+	} else {
+		arbSum = (1 / best.HomeOdds) + (1 / best.DrawOdds) + (1 / best.AwayOdds)
+	}
+
 	if arbSum >= 1.0 {
 		return nil
 	}
@@ -60,8 +68,10 @@ func checkArb(matchID, market string, odds []store.NormalizedOdds, minProfitPct 
 
 	stakes := map[string]float64{
 		"home": (1 / best.HomeOdds) / arbSum * 100,
-		"draw": (1 / best.DrawOdds) / arbSum * 100,
 		"away": (1 / best.AwayOdds) / arbSum * 100,
+	}
+	if !isTwoOutcome {
+		stakes["draw"] = (1 / best.DrawOdds) / arbSum * 100
 	}
 
 	return &ArbSignal{
@@ -97,9 +107,7 @@ func findBestOdds(odds []store.NormalizedOdds) *BestOdds {
 	if best.HomeOdds == 0 || best.AwayOdds == 0 {
 		return nil
 	}
-	if best.DrawOdds == 0 {
-		best.DrawOdds = 999
-	}
+	// DrawOdds stays 0 for two-outcome markets — handled in checkArb
 	return best
 }
 

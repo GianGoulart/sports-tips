@@ -29,6 +29,10 @@ func (h *Handler) getMatchOdds(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getMatchSignals(w http.ResponseWriter, r *http.Request) {
 	matchID := chi.URLParam(r, "id")
 	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	signals, err := h.store.GetSignalsByMatch(r.Context(), claims.TenantID, matchID)
 	if err != nil {

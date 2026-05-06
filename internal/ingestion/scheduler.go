@@ -2,6 +2,7 @@ package ingestion
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -128,6 +129,9 @@ func (s *Scheduler) fetchWithFallback(sport string) ([]RawEvent, error) {
 	events, err := s.primary.GetOdds(sport)
 	if err != nil {
 		s.log.Warn("primary source failed, trying fallback", "err", err)
+		if s.fallback == nil {
+			return nil, fmt.Errorf("primary failed and no fallback configured: %w", err)
+		}
 		return s.fallback.GetOdds(sport)
 	}
 	return events, nil
