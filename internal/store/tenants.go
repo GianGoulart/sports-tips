@@ -94,3 +94,26 @@ func (s *Store) UpdatePreferences(ctx context.Context, p TenantPreferences) erro
 		p.TelegramID, p.Email, p.Bookmakers)
 	return err
 }
+
+func (s *Store) GetAllTenants(ctx context.Context) ([]Tenant, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, email, name, password, plan, created_at FROM tenants
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tenants []Tenant
+	for rows.Next() {
+		var t Tenant
+		if err := rows.Scan(&t.ID, &t.Email, &t.Name, &t.Password, &t.Plan, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		tenants = append(tenants, t)
+	}
+	if tenants == nil {
+		tenants = []Tenant{}
+	}
+	return tenants, rows.Err()
+}

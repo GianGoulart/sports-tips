@@ -65,3 +65,10 @@ func (s *Store) GetMatchByExternalID(ctx context.Context, externalID string) (*M
 	}
 	return &m, nil
 }
+
+func (s *Store) MarkMatchFinished(ctx context.Context, externalID string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE matches SET status = 'finished' WHERE external_id = $1
+	`, externalID)
+	return err
+}
