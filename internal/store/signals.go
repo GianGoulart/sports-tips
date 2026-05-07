@@ -50,7 +50,7 @@ func (s *Store) GetSignals(ctx context.Context, tenantID, sigType string) ([]Sig
 	}
 	defer rows.Close()
 
-	var result []Signal
+	result := []Signal{}
 	for rows.Next() {
 		var sig Signal
 		if err := rows.Scan(&sig.ID, &sig.TenantID, &sig.MatchID, &sig.Type,
