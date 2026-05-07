@@ -101,28 +101,44 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 		return
 	}
 
-	arbSignals := engine.DetectArbitrage(matchID, odds, 0.01)
-	var signals []store.Signal
-	for _, arb := range arbSignals {
-		sig, err := arb.ToStoreSignal()
-		if err != nil {
-			s.log.Error("arb to signal", "err", err)
-			continue
-		}
-		signals = append(signals, sig)
-	}
-
-	if len(signals) == 0 {
+	tenants, err := s.store.GetAllTenants(ctx)
+	if err != nil {
+		s.log.Error("get tenants", "err", err)
 		return
 	}
 
-	// Phase 1: log only. signals table requires tenant_id (NOT NULL),
-	// storage happens in Phase 2 when tenant preference loop runs.
-	markets := make([]string, len(signals))
-	for i, sig := range signals {
-		markets[i] = sig.Market
+	for _, tenant := range tenants {
+		prefs, err := s.store.GetPreferences(ctx, tenant.ID)
+		if err != nil {
+			s.log.Error("get preferences", "tenantID", tenant.ID, "err", err)
+			continue
+		}
+
+		arbSignals := engine.DetectArbitrage(matchID, odds, prefs.MinArbProfit)
+		if len(arbSignals) == 0 {
+			continue
+		}
+
+		var signals []store.Signal
+		for _, arb := range arbSignals {
+			sig, err := arb.ToStoreSignal()
+			if err != nil {
+				s.log.Error("arb to signal", "err", err)
+				continue
+			}
+			signals = append(signals, sig)
+		}
+
+		if err := s.store.InsertSignals(ctx, tenant.ID, signals); err != nil {
+			s.log.Error("insert signals", "tenantID", tenant.ID, "err", err)
+			continue
+		}
+
+		s.log.Info("signals stored",
+			"tenantID", tenant.ID,
+			"matchID", matchID,
+			"count", len(signals))
 	}
-	s.log.Info("arbitrage found", "matchID", matchID, "count", len(signals), "markets", markets)
 }
 
 func (s *Scheduler) fetchWithFallback(sport string) ([]RawEvent, error) {
