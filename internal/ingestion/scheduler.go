@@ -7,24 +7,27 @@ import (
 	"time"
 
 	"sportstips/internal/engine"
+	"sportstips/internal/predictions"
 	"sportstips/internal/store"
 )
 
 type Scheduler struct {
-	store    *store.Store
-	primary  OddsClient
-	fallback OddsClient
-	sports   []string
-	log      *slog.Logger
+	store       *store.Store
+	primary     OddsClient
+	fallback    OddsClient
+	sports      []string
+	log         *slog.Logger
+	predictions predictions.PredictionService
 }
 
-func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger) *Scheduler {
+func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger, pred predictions.PredictionService) *Scheduler {
 	return &Scheduler{
-		store:    s,
-		primary:  primary,
-		fallback: fallback,
-		sports:   sports,
-		log:      log,
+		store:       s,
+		primary:     primary,
+		fallback:    fallback,
+		sports:      sports,
+		log:         log,
+		predictions: pred,
 	}
 }
 
@@ -107,6 +110,9 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 		return
 	}
 
+	// Fetch ML prediction once per match (shared across tenants)
+	pred, predErr := s.predictions.Predict(ctx, matchID)
+
 	for _, tenant := range tenants {
 		prefs, err := s.store.GetPreferences(ctx, tenant.ID)
 		if err != nil {
@@ -114,12 +120,10 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 			continue
 		}
 
-		arbSignals := engine.DetectArbitrage(matchID, odds, prefs.MinArbProfit)
-		if len(arbSignals) == 0 {
-			continue
-		}
-
 		var signals []store.Signal
+
+		// Arbitrage signals
+		arbSignals := engine.DetectArbitrage(matchID, odds, prefs.MinArbProfit)
 		for _, arb := range arbSignals {
 			sig, err := arb.ToStoreSignal()
 			if err != nil {
@@ -127,6 +131,23 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 				continue
 			}
 			signals = append(signals, sig)
+		}
+
+		// Value bet signals (only if ML prediction available)
+		if predErr == nil {
+			vbSignals := engine.DetectValueBets(matchID, odds, pred, prefs.MinValueEdge)
+			for _, vb := range vbSignals {
+				sig, err := vb.ToStoreSignal()
+				if err != nil {
+					s.log.Error("vb to signal", "err", err)
+					continue
+				}
+				signals = append(signals, sig)
+			}
+		}
+
+		if len(signals) == 0 {
+			continue
 		}
 
 		if err := s.store.InsertSignals(ctx, tenant.ID, signals); err != nil {

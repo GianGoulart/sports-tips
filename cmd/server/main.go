@@ -45,8 +45,7 @@ func main() {
 	primaryClient := ingestion.NewOddsAPIClient(cfg.OddsAPIKey)
 	fallbackClient := ingestion.NewOddsPapiClient(cfg.OddsPapiKey)
 
-	// PredictionService wired in Phase 3 — stub satisfies interface for compilation
-	var _ predictions.PredictionService = &predictions.StubPredictionService{}
+	predSvc := predictions.NewBatchPredictionService(db.Pool())
 
 	primaryResults := results.NewOddsAPIResultsClient(cfg.OddsAPIKey)
 	var fallbackResults results.ResultsClient
@@ -72,11 +71,11 @@ func main() {
 			"soccer_germany_bundesliga",
 			"soccer_uefa_champs_league",
 		},
-		log)
+		log, predSvc)
 
 	go scheduler.Run(ctx)
 
-	handler := api.NewHandler(db, cfg.JWTSecret, ingester)
+	handler := api.NewHandler(db, cfg.JWTSecret, ingester, predSvc)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
 		Handler:      handler.Router(),
