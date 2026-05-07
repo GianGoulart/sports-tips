@@ -8,22 +8,24 @@ import (
 )
 
 type Config struct {
-	DatabaseURL  string
-	JWTSecret    string
-	OddsAPIKey   string
-	OddsPapiKey  string
-	ServerPort   string
+	DatabaseURL     string
+	JWTSecret       string
+	OddsAPIKey      string
+	OddsPapiKey     string
+	FootballDataKey string
+	ServerPort      string
 }
 
 func Load() (*Config, error) {
 	_ = godotenv.Load() // no error if .env missing (prod uses real env)
 
 	cfg := &Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		OddsAPIKey:  os.Getenv("ODDS_API_KEY"),
-		OddsPapiKey: os.Getenv("ODDSPAPI_KEY"),
-		ServerPort:  os.Getenv("SERVER_PORT"),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		JWTSecret:       os.Getenv("JWT_SECRET"),
+		OddsAPIKey:      os.Getenv("ODDS_API_KEY"),
+		OddsPapiKey:     os.Getenv("ODDSPAPI_KEY"),
+		FootballDataKey: os.Getenv("FOOTBALL_DATA_KEY"),
+		ServerPort:      os.Getenv("SERVER_PORT"),
 	}
 
 	if cfg.DatabaseURL == "" {

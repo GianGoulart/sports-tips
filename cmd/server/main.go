@@ -14,6 +14,7 @@ import (
 	"sportstips/internal/config"
 	"sportstips/internal/ingestion"
 	"sportstips/internal/predictions"
+	"sportstips/internal/results"
 	"sportstips/internal/store"
 )
 
@@ -47,6 +48,22 @@ func main() {
 	// PredictionService wired in Phase 3 — stub satisfies interface for compilation
 	var _ predictions.PredictionService = &predictions.StubPredictionService{}
 
+	primaryResults := results.NewOddsAPIResultsClient(cfg.OddsAPIKey)
+	var fallbackResults results.ResultsClient
+	if cfg.FootballDataKey != "" {
+		fallbackResults = results.NewFootballDataClient(cfg.FootballDataKey)
+	}
+
+	ingester := results.NewIngester(db, primaryResults, fallbackResults,
+		[]string{
+			"soccer_epl",
+			"soccer_spain_la_liga",
+			"soccer_italy_serie_a",
+			"soccer_germany_bundesliga",
+			"soccer_uefa_champs_league",
+		},
+		log)
+
 	scheduler := ingestion.NewScheduler(db, primaryClient, fallbackClient,
 		[]string{
 			"soccer_epl",
@@ -59,7 +76,7 @@ func main() {
 
 	go scheduler.Run(ctx)
 
-	handler := api.NewHandler(db, cfg.JWTSecret)
+	handler := api.NewHandler(db, cfg.JWTSecret, ingester)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
 		Handler:      handler.Router(),

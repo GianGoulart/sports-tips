@@ -7,16 +7,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"sportstips/internal/auth"
+	"sportstips/internal/results"
 	"sportstips/internal/store"
 )
 
 type Handler struct {
 	store     *store.Store
 	jwtSecret string
+	ingester  *results.Ingester
 }
 
-func NewHandler(s *store.Store, jwtSecret string) *Handler {
-	return &Handler{store: s, jwtSecret: jwtSecret}
+func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester) *Handler {
+	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester}
 }
 
 func (h *Handler) Router() *chi.Mux {
@@ -36,6 +38,8 @@ func (h *Handler) Router() *chi.Mux {
 		r.Get("/signals", h.listSignals)
 		r.Patch("/preferences", h.updatePreferences)
 	})
+
+	r.Post("/admin/results/sync", h.syncResults)
 
 	return r
 }
