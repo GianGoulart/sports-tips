@@ -29,6 +29,10 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
+func (s *Store) Pool() *pgxpool.Pool {
+	return s.pool
+}
+
 func RunMigrations(databaseURL string) error {
 	m, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
