@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"sportstips/internal/alerts"
 	"sportstips/internal/api"
 	"sportstips/internal/config"
 	"sportstips/internal/ingestion"
@@ -47,6 +48,13 @@ func main() {
 
 	predSvc := predictions.NewBatchPredictionService(db.Pool())
 
+	var alerter alerts.Alerter
+	if cfg.TelegramBotToken != "" {
+		alerter = alerts.NewTelegramAlerter(cfg.TelegramBotToken)
+	} else {
+		alerter = &alerts.NoopAlerter{}
+	}
+
 	primaryResults := results.NewOddsAPIResultsClient(cfg.OddsAPIKey)
 	var fallbackResults results.ResultsClient
 	if cfg.FootballDataKey != "" {
@@ -71,7 +79,7 @@ func main() {
 			"soccer_germany_bundesliga",
 			"soccer_uefa_champs_league",
 		},
-		log, predSvc)
+		log, predSvc, alerter)
 
 	go scheduler.Run(ctx)
 

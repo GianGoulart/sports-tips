@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	DatabaseURL     string
-	JWTSecret       string
-	OddsAPIKey      string
-	OddsPapiKey     string
-	FootballDataKey string
-	ServerPort      string
+	DatabaseURL        string
+	JWTSecret          string
+	OddsAPIKey         string
+	OddsPapiKey        string
+	FootballDataKey    string
+	ServerPort         string
+	TelegramBotToken   string
 }
 
 func Load() (*Config, error) {
@@ -24,8 +25,9 @@ func Load() (*Config, error) {
 		JWTSecret:       os.Getenv("JWT_SECRET"),
 		OddsAPIKey:      os.Getenv("ODDS_API_KEY"),
 		OddsPapiKey:     os.Getenv("ODDSPAPI_KEY"),
-		FootballDataKey: os.Getenv("FOOTBALL_DATA_KEY"),
-		ServerPort:      os.Getenv("SERVER_PORT"),
+		FootballDataKey:  os.Getenv("FOOTBALL_DATA_KEY"),
+		ServerPort:       os.Getenv("SERVER_PORT"),
+		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 	}
 
 	if cfg.DatabaseURL == "" {

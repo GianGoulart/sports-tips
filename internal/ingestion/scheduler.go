@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"sportstips/internal/alerts"
 	"sportstips/internal/engine"
 	"sportstips/internal/predictions"
 	"sportstips/internal/store"
@@ -18,9 +19,10 @@ type Scheduler struct {
 	sports      []string
 	log         *slog.Logger
 	predictions predictions.PredictionService
+	alerter     alerts.Alerter
 }
 
-func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger, pred predictions.PredictionService) *Scheduler {
+func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger, pred predictions.PredictionService, alerter alerts.Alerter) *Scheduler {
 	return &Scheduler{
 		store:       s,
 		primary:     primary,
@@ -28,6 +30,7 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 		sports:      sports,
 		log:         log,
 		predictions: pred,
+		alerter:     alerter,
 	}
 }
 
@@ -159,6 +162,16 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 			"tenantID", tenant.ID,
 			"matchID", matchID,
 			"count", len(signals))
+
+		// Send Telegram alerts if tenant has configured a chat ID
+		if prefs.TelegramID != nil && *prefs.TelegramID != "" {
+			for _, sig := range signals {
+				msg := alerts.FormatSignal(sig.Type, sig.Market, matchID, sig.Data)
+				if err := s.alerter.Send(*prefs.TelegramID, msg); err != nil {
+					s.log.Warn("telegram alert failed", "tenantID", tenant.ID, "err", err)
+				}
+			}
+		}
 	}
 }
 
