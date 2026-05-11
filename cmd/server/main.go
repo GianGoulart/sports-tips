@@ -44,7 +44,8 @@ func main() {
 	defer db.Close()
 
 	primaryClient := ingestion.NewOddsAPIClient(cfg.OddsAPIKey)
-	fallbackClient := ingestion.NewOddsPapiClient(cfg.OddsPapiKey)
+	// OddsPapi disabled — TLS SNI failure on their end, no working fallback
+	var fallbackClient ingestion.OddsClient
 
 	predSvc := predictions.NewBatchPredictionService(db.Pool())
 
