@@ -20,6 +20,8 @@ services:
     ports:
       - "8080:8080"
     env_file: .env
+    environment:
+      DATABASE_URL: postgres://sportstips:sportstips@postgres:5432/sportstips?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
