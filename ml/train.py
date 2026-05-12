@@ -32,7 +32,9 @@ SPORT_GROUPS = {
     ],
     "basketball": [
         "basketball_nba",
-        # basketball_nbb: add when key confirmed on Odds API
+    ],
+    "baseball": [
+        "baseball_mlb",
     ],
 }
 

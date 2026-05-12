@@ -71,7 +71,8 @@ func main() {
 		"soccer_uefa_champs_league",
 		// Basketball
 		"basketball_nba",
-		// basketball_nbb: not available on Odds API — add key when confirmed
+		// Baseball
+		"baseball_mlb",
 	}
 
 	ingester := results.NewIngester(db, primaryResults, fallbackResults, sports, log)

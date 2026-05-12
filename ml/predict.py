@@ -17,7 +17,7 @@ MODELS_DIR = Path("/app/models")
 
 SPORT_GROUP_MAP = {
     "basketball_nba": "basketball",
-    # basketball_nbb: add when key confirmed on Odds API
+    "baseball_mlb":   "baseball",
 }
 
 def get_sport_group(sport: str) -> str:
