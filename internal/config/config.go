@@ -8,25 +8,25 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string
-	JWTSecret          string
-	OddsAPIKey         string
-	OddsPapiKey        string
-	FootballDataKey    string
-	ServerPort         string
-	TelegramBotToken   string
+	DatabaseURL      string
+	JWTSecret        string
+	OddsAPIKey       string
+	OddsPapiKey      string
+	FootballDataKey  string
+	ServerPort       string
+	TelegramBotToken string
 }
 
 func Load() (*Config, error) {
 	_ = godotenv.Load() // no error if .env missing (prod uses real env)
 
 	cfg := &Config{
-		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		JWTSecret:       os.Getenv("JWT_SECRET"),
-		OddsAPIKey:      os.Getenv("ODDS_API_KEY"),
-		OddsPapiKey:     os.Getenv("ODDSPAPI_KEY"),
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		JWTSecret:        os.Getenv("JWT_SECRET"),
+		OddsAPIKey:       os.Getenv("ODDS_API_KEY"),
+		OddsPapiKey:      os.Getenv("ODDSPAPI_KEY"),
 		FootballDataKey:  os.Getenv("FOOTBALL_DATA_KEY"),
-		ServerPort:       os.Getenv("SERVER_PORT"),
+		ServerPort:       firstNonEmpty(os.Getenv("SERVER_PORT"), os.Getenv("PORT")),
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 	}
 
@@ -41,4 +41,13 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

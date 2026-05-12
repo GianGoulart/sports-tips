@@ -29,6 +29,10 @@ func (h *Handler) Router() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	})
+
 	r.Post("/auth/register", h.register)
 	r.Post("/auth/login", h.login)
 
