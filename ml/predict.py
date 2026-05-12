@@ -14,17 +14,34 @@ from db import get_connection
 from features import FEATURE_COLS, compute_elo, compute_rolling_stats, fetch_training_data
 
 MODELS_DIR = Path("/app/models")
-LATEST_MODEL = MODELS_DIR / "model_latest.pkl"
+
+SPORT_GROUP_MAP = {
+    "basketball_nba": "basketball",
+    "basketball_nbb": "basketball",
+}
+
+def get_sport_group(sport: str) -> str:
+    """Map a sport key to its model group."""
+    return SPORT_GROUP_MAP.get(sport, "soccer")
+
+
+def load_model_for_group(sport_group: str):
+    """Load the latest model for a sport group. Returns None if not found."""
+    path = MODELS_DIR / f"model_{sport_group}_latest.pkl"
+    if not path.exists():
+        return None
+    return joblib.load(path)
 
 
 def fetch_upcoming_matches(conn) -> pd.DataFrame:
-    """Return upcoming/live matches that need predictions."""
+    """Return upcoming/live matches that need predictions, including sport."""
     query = """
         SELECT
             m.id AS match_id,
             m.home_team,
             m.away_team,
             m.starts_at,
+            m.sport,
             AVG(CASE WHEN o.market = '1x2' THEN 1.0 / NULLIF(o.odds_home, 0) END) AS implied_prob_home,
             AVG(CASE WHEN o.market = '1x2' THEN 1.0 / NULLIF(o.odds_draw, 0) END) AS implied_prob_draw,
             AVG(CASE WHEN o.market = '1x2' THEN 1.0 / NULLIF(o.odds_away, 0) END) AS implied_prob_away
@@ -32,7 +49,7 @@ def fetch_upcoming_matches(conn) -> pd.DataFrame:
         LEFT JOIN odds_normalized o ON o.match_id = m.id
         WHERE m.status IN ('upcoming', 'live')
           AND m.starts_at < NOW() + INTERVAL '48 hours'
-        GROUP BY m.id, m.home_team, m.away_team, m.starts_at
+        GROUP BY m.id, m.home_team, m.away_team, m.starts_at, m.sport
         HAVING AVG(CASE WHEN o.market = '1x2' THEN 1.0 / NULLIF(o.odds_home, 0) END) IS NOT NULL
     """
     return pd.read_sql(query, conn)
@@ -62,14 +79,6 @@ def insert_predictions(conn, predictions: list):
 
 
 def main():
-    if not LATEST_MODEL.exists():
-        print("No trained model found. Run train.py first.")
-        sys.exit(0)
-
-    bundle = joblib.load(LATEST_MODEL)
-    model = bundle["model"]
-    model_version = bundle["version"]
-
     conn = get_connection()
 
     upcoming = fetch_upcoming_matches(conn)
@@ -79,37 +88,53 @@ def main():
         return
 
     from features import fetch_training_data as _fetch_history
-    history = _fetch_history(conn)
 
-    features_df = build_prediction_features(upcoming, history)
+    # Group matches by sport group and predict with the correct model
+    all_predictions = []
+    for sport_group, group_df in upcoming.groupby(upcoming["sport"].map(get_sport_group)):
+        bundle = load_model_for_group(sport_group)
+        if bundle is None:
+            print(f"[{sport_group}] No trained model found. Run train.py first.")
+            continue
 
-    for col in FEATURE_COLS:
-        if col not in features_df.columns:
-            features_df[col] = 0.0
-    features_df[FEATURE_COLS] = features_df[FEATURE_COLS].fillna(0.0)
+        model = bundle["model"]
+        model_version = bundle["version"]
 
-    X = features_df[FEATURE_COLS]
-    proba = model.predict_proba(X)
-    classes = list(model.classes_)
+        # Historical data for ELO/rolling context
+        sport_keys = group_df["sport"].unique().tolist()
+        history = _fetch_history(conn, sports=sport_keys)
 
-    idx_home = classes.index(0) if 0 in classes else 0
-    idx_draw = classes.index(1) if 1 in classes else 1
-    idx_away = classes.index(2) if 2 in classes else 2
+        features_df = build_prediction_features(group_df, history)
 
-    predictions = []
-    for i, (_, row) in enumerate(upcoming.iterrows()):
-        predictions.append({
-            "match_id": row["match_id"],
-            "model_version": model_version,
-            "prob_home": float(proba[i][idx_home]),
-            "prob_draw": float(proba[i][idx_draw]) if proba.shape[1] > 2 else 0.0,
-            "prob_away": float(proba[i][idx_away]),
-        })
+        for col in FEATURE_COLS:
+            if col not in features_df.columns:
+                features_df[col] = 0.0
+        features_df[FEATURE_COLS] = features_df[FEATURE_COLS].fillna(0.0)
 
-    insert_predictions(conn, predictions)
+        X = features_df[FEATURE_COLS]
+        proba = model.predict_proba(X)
+        classes = list(model.classes_)
+
+        idx_home = classes.index(0) if 0 in classes else 0
+        idx_draw = classes.index(1) if 1 in classes else -1
+        idx_away = classes.index(2) if 2 in classes else 1
+
+        for i, (_, row) in enumerate(group_df.iterrows()):
+            all_predictions.append({
+                "match_id": row["match_id"],
+                "model_version": model_version,
+                "prob_home": float(proba[i][idx_home]),
+                "prob_draw": float(proba[i][idx_draw]) if idx_draw >= 0 and proba.shape[1] > 2 else 0.0,
+                "prob_away": float(proba[i][idx_away]),
+            })
+
+        print(f"[{sport_group}] Predictions: {len(group_df)} matches (model={model_version})")
+
+    if all_predictions:
+        insert_predictions(conn, all_predictions)
+
     conn.close()
-
-    print(f"Predictions written: {len(predictions)} matches (model={model_version})")
+    print(f"Total predictions written: {len(all_predictions)}")
 
 
 if __name__ == "__main__":

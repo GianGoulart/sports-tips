@@ -50,7 +50,7 @@ type oddsAPIOutcome struct {
 
 func (c *OddsAPIClient) GetOdds(sport string) ([]RawEvent, error) {
 	url := fmt.Sprintf(
-		"%s/sports/%s/odds/?apiKey=%s&regions=eu&markets=h2h,totals&dateFormat=iso&oddsFormat=decimal",
+		"%s/sports/%s/odds/?apiKey=%s&regions=us,eu&markets=h2h,totals&dateFormat=iso&oddsFormat=decimal",
 		oddsAPIBase, sport, c.apiKey,
 	)
 

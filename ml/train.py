@@ -21,6 +21,21 @@ from features import build_dataset, FEATURE_COLS
 
 MODELS_DIR = Path("/app/models")
 
+# Train one model per sport group. Add new groups here as sports are added.
+SPORT_GROUPS = {
+    "soccer": [
+        "soccer_epl",
+        "soccer_spain_la_liga",
+        "soccer_italy_serie_a",
+        "soccer_germany_bundesliga",
+        "soccer_uefa_champs_league",
+    ],
+    "basketball": [
+        "basketball_nba",
+        "basketball_nbb",
+    ],
+}
+
 
 def save_metrics(conn, model_version: str, brier: float, logloss: float, n_samples: int):
     with conn.cursor() as cur:
@@ -31,14 +46,12 @@ def save_metrics(conn, model_version: str, brier: float, logloss: float, n_sampl
     conn.commit()
 
 
-def main():
-    conn = get_connection()
-    X, y = build_dataset(conn)
+def train_group(conn, sport_group: str, sport_keys: list):
+    X, y = build_dataset(conn, sports=sport_keys)
 
     if len(X) < 20:
-        print(f"Not enough training data: {len(X)} samples (need >= 20). Exiting.")
-        conn.close()
-        sys.exit(0)
+        print(f"[{sport_group}] Not enough data: {len(X)} samples (need >= 20). Skipping.")
+        return
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y if len(y.unique()) > 1 else None
@@ -59,23 +72,30 @@ def main():
     ])
     logloss = log_loss(y_test, proba)
 
-    model_version = f"lr_{date.today().isoformat()}"
+    model_version = f"lr_{sport_group}_{date.today().isoformat()}"
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODELS_DIR / f"model_{model_version}.pkl"
-    joblib.dump({"model": model, "version": model_version, "features": FEATURE_COLS}, model_path)
+    versioned_path = MODELS_DIR / f"model_{model_version}.pkl"
+    latest_path = MODELS_DIR / f"model_{sport_group}_latest.pkl"
 
-    latest_path = MODELS_DIR / "model_latest.pkl"
-    joblib.dump({"model": model, "version": model_version, "features": FEATURE_COLS}, latest_path)
+    bundle = {"model": model, "version": model_version, "features": FEATURE_COLS, "sport_group": sport_group}
+    joblib.dump(bundle, versioned_path)
+    joblib.dump(bundle, latest_path)
 
     save_metrics(conn, model_version, brier, logloss, len(X))
-    conn.close()
 
-    print(f"Model trained: {model_version}")
+    print(f"[{sport_group}] Model trained: {model_version}")
     print(f"  Samples: {len(X)} train={len(X_train)} test={len(X_test)}")
     print(f"  Brier score: {brier:.4f}")
     print(f"  Log loss:    {logloss:.4f}")
-    print(f"  Saved to:    {model_path}")
+    print(f"  Saved to:    {latest_path}")
+
+
+def main():
+    conn = get_connection()
+    for sport_group, sport_keys in SPORT_GROUPS.items():
+        train_group(conn, sport_group, sport_keys)
+    conn.close()
 
 
 if __name__ == "__main__":

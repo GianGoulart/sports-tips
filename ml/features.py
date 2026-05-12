@@ -32,17 +32,27 @@ FEATURE_COLS = [
 TARGET_COL = "outcome_encoded"  # 0=home, 1=draw, 2=away
 
 
-def fetch_training_data(conn) -> pd.DataFrame:
+def fetch_training_data(conn, sports: list = None) -> pd.DataFrame:
     """
     Join matches + results + odds_normalized to build raw training rows.
     Returns one row per match that has a result.
+    sports: optional list of sport keys to filter (e.g. ["soccer_epl", "soccer_spain_la_liga"]).
+            None = all sports.
     """
-    query = """
+    sport_filter = ""
+    params = {}
+    if sports:
+        placeholders = ",".join(f"%(sport_{i})s" for i in range(len(sports)))
+        sport_filter = f"AND m.sport IN ({placeholders})"
+        params = {f"sport_{i}": s for i, s in enumerate(sports)}
+
+    query = f"""
         SELECT
             m.id          AS match_id,
             m.home_team,
             m.away_team,
             m.starts_at,
+            m.sport,
             r.outcome,
             r.score_home,
             r.score_away,
@@ -52,10 +62,11 @@ def fetch_training_data(conn) -> pd.DataFrame:
         FROM matches m
         JOIN results r ON r.match_id = m.id
         JOIN odds_normalized o ON o.match_id = m.id
-        GROUP BY m.id, m.home_team, m.away_team, m.starts_at, r.outcome, r.score_home, r.score_away
+        WHERE 1=1 {sport_filter}
+        GROUP BY m.id, m.home_team, m.away_team, m.starts_at, m.sport, r.outcome, r.score_home, r.score_away
         ORDER BY m.starts_at ASC
     """
-    return pd.read_sql(query, conn)
+    return pd.read_sql(query, conn, params=params if params else None)
 
 
 def compute_elo(df: pd.DataFrame, k: int = 20) -> pd.DataFrame:
@@ -140,11 +151,12 @@ def encode_outcome(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_dataset(conn) -> tuple:
+def build_dataset(conn, sports: list = None) -> tuple:
     """
     Full pipeline: fetch -> ELO -> rolling stats -> encode -> return X, y.
+    sports: optional sport key filter passed to fetch_training_data.
     """
-    df = fetch_training_data(conn)
+    df = fetch_training_data(conn, sports=sports)
     if df.empty:
         return pd.DataFrame(columns=FEATURE_COLS), pd.Series(dtype=int)
 

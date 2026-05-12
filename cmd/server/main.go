@@ -62,25 +62,21 @@ func main() {
 		fallbackResults = results.NewFootballDataClient(cfg.FootballDataKey)
 	}
 
-	ingester := results.NewIngester(db, primaryResults, fallbackResults,
-		[]string{
-			"soccer_epl",
-			"soccer_spain_la_liga",
-			"soccer_italy_serie_a",
-			"soccer_germany_bundesliga",
-			"soccer_uefa_champs_league",
-		},
-		log)
+	sports := []string{
+		// Soccer
+		"soccer_epl",
+		"soccer_spain_la_liga",
+		"soccer_italy_serie_a",
+		"soccer_germany_bundesliga",
+		"soccer_uefa_champs_league",
+		// Basketball
+		"basketball_nba",
+		"basketball_nbb",
+	}
 
-	scheduler := ingestion.NewScheduler(db, primaryClient, fallbackClient,
-		[]string{
-			"soccer_epl",
-			"soccer_spain_la_liga",
-			"soccer_italy_serie_a",
-			"soccer_germany_bundesliga",
-			"soccer_uefa_champs_league",
-		},
-		log, predSvc, alerter)
+	ingester := results.NewIngester(db, primaryResults, fallbackResults, sports, log)
+
+	scheduler := ingestion.NewScheduler(db, primaryClient, fallbackClient, sports, log, predSvc, alerter)
 
 	go scheduler.Run(ctx)
 
