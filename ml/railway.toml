@@ -3,6 +3,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "python train.py && python predict.py"
-cronSchedule = "0 4 * * *"
-restartPolicyType = "never"
+startCommand = "python server.py"
+restartPolicyType = "always"
+healthcheckPath = "/health"
+healthcheckTimeout = 30

@@ -15,6 +15,8 @@ type Config struct {
 	FootballDataKey  string
 	ServerPort       string
 	TelegramBotToken string
+	MLServiceURL     string
+	MLSecret         string
 }
 
 func Load() (*Config, error) {
@@ -28,6 +30,8 @@ func Load() (*Config, error) {
 		FootballDataKey:  os.Getenv("FOOTBALL_DATA_KEY"),
 		ServerPort:       firstNonEmpty(os.Getenv("SERVER_PORT"), os.Getenv("PORT")),
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
+		MLServiceURL:     os.Getenv("ML_SERVICE_URL"),
+		MLSecret:         os.Getenv("ML_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {

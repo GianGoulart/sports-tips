@@ -81,7 +81,7 @@ func main() {
 
 	go scheduler.Run(ctx)
 
-	handler := api.NewHandler(db, cfg.JWTSecret, ingester, predSvc)
+	handler := api.NewHandler(db, cfg.JWTSecret, ingester, predSvc, cfg.MLServiceURL, cfg.MLSecret)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
 		Handler:      handler.Router(),

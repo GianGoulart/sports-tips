@@ -13,14 +13,16 @@ import (
 )
 
 type Handler struct {
-	store     *store.Store
-	jwtSecret string
-	ingester  *results.Ingester
-	pred      predictions.PredictionService
+	store        *store.Store
+	jwtSecret    string
+	ingester     *results.Ingester
+	pred         predictions.PredictionService
+	mlServiceURL string
+	mlSecret     string
 }
 
-func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService) *Handler {
-	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred}
+func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService, mlServiceURL, mlSecret string) *Handler {
+	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred, mlServiceURL: mlServiceURL, mlSecret: mlSecret}
 }
 
 func (h *Handler) Router() *chi.Mux {
@@ -47,6 +49,7 @@ func (h *Handler) Router() *chi.Mux {
 	})
 
 	r.Post("/admin/results/sync", h.syncResults)
+	r.Post("/admin/ml/run", h.triggerML)
 
 	return r
 }
