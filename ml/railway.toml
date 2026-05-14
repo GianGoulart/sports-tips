@@ -3,6 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "python predict.py"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+startCommand = "python train.py && python predict.py"
+cronSchedule = "0 4 * * *"
+restartPolicyType = "never"
