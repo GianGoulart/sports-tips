@@ -43,22 +43,18 @@ Aggregate sports betting odds, detect arbitrage + value bets, use ML to estimate
 - GitHub repo not created (no remote) — Railway auto-deploy blocked
 - Railway services created but not connected:
   - `postgres` service: CRASHED (needs env vars fixed)
-  - `api` service: created, no deployment, domain: `api-production-e453.up.railway.app`
-  - `ml` service: created, no deployment
-- `DATABASE_URL` reference var not set (blocked by missing GitHub repo)
+  - `api` service: RUNNING — `https://api-production-79d1.up.railway.app`
+  - `ml` service: RUNNING
 - Dashboard (frontend) — not started
 - Email alerts — not implemented
 - Telegram bot token — not configured
+- GitHub Actions CI pipeline — not built
 
 ### Next Steps (in order)
 
-1. Create GitHub repo + push (`brew install gh && gh auth login && gh repo create sportstips --private --source=. --push`)
-2. Wire `DATABASE_URL` reference from postgres → api and ml services
-3. Fix postgres service crash (check env vars)
-4. Connect Railway services to repo, set `rootDirectory=ml` on ml service
-5. Build GitHub Actions CI pipeline (go test gate → railway deploy)
-6. Configure Telegram bot token
-7. Build dashboard
+1. Configure Telegram alerts (bot token + chat ID)
+2. Build GitHub Actions CI pipeline (go test gate → railway deploy)
+3. Build dashboard
 
 ---
 
@@ -74,10 +70,11 @@ Aggregate sports betting odds, detect arbitrage + value bets, use ML to estimate
 
 - Project: `discerning-manifestation` (`b78c5ac1-4deb-41c5-b74a-b2c1fe6f33d5`)
 - Environment: `production` (`e8839995-9519-404e-8ee2-1c75270a4d91`)
+- Repo: `GianGoulart/sports-tips`
 - Services:
-  - `postgres` — `575f62a8-d8bc-4d4b-ba0c-34b8e28239f5`
-  - `api` — `03ba04f0-4254-439a-b425-4ffa0fe92500`
-  - `ml` — `37c425d3-2f59-494d-9115-fff6e32edf94`
+  - `Postgres` — `c19c8d00-e9e3-444c-af1d-3ebb0bacfba8`
+  - `api` — `08cb59af-cbf2-494a-85ab-5c3c7223000c` — `https://api-production-79d1.up.railway.app`
+  - `ml` — `5379bee1-7278-4832-82f8-f992aeabc07c` (root dir: `ml`)
 
 ---
 

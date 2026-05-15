@@ -50,6 +50,9 @@ func (h *Handler) Router() *chi.Mux {
 
 	r.Post("/admin/results/sync", h.syncResults)
 	r.Post("/admin/ml/run", h.triggerML)
+	r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]string{"version": "v2-ml-trigger"})
+	})
 
 	return r
 }
