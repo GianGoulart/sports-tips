@@ -66,6 +66,30 @@ func (s *Store) GetMatchByExternalID(ctx context.Context, externalID string) (*M
 	return &m, nil
 }
 
+func (s *Store) GetActiveMatchesBySport(ctx context.Context, sport string) ([]Match, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, external_id, sport, league, home_team, away_team, starts_at, status, last_fetched
+		FROM matches
+		WHERE sport = $1 AND status IN ('upcoming', 'live')
+		ORDER BY starts_at ASC
+	`, sport)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	matches := []Match{}
+	for rows.Next() {
+		var m Match
+		if err := rows.Scan(&m.ID, &m.ExternalID, &m.Sport, &m.League,
+			&m.HomeTeam, &m.AwayTeam, &m.StartsAt, &m.Status, &m.LastFetched); err != nil {
+			return nil, err
+		}
+		matches = append(matches, m)
+	}
+	return matches, rows.Err()
+}
+
 func (s *Store) MarkMatchFinished(ctx context.Context, externalID string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE matches SET status = 'finished' WHERE external_id = $1

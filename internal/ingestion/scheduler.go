@@ -2,8 +2,10 @@ package ingestion
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"sportstips/internal/alerts"
@@ -20,6 +22,9 @@ type Scheduler struct {
 	log         *slog.Logger
 	predictions predictions.PredictionService
 	alerter     alerts.Alerter
+
+	mu       sync.Mutex
+	oddsHash map[string]string // matchID → md5 of latest odds
 }
 
 func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger, pred predictions.PredictionService, alerter alerts.Alerter) *Scheduler {
@@ -31,6 +36,7 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 		log:         log,
 		predictions: pred,
 		alerter:     alerter,
+		oddsHash:    make(map[string]string),
 	}
 }
 
@@ -53,6 +59,10 @@ func (s *Scheduler) Run(ctx context.Context) {
 
 func (s *Scheduler) fetchAll(ctx context.Context) {
 	for _, sport := range s.sports {
+		if !s.sportNeedsUpdate(ctx, sport) {
+			continue
+		}
+
 		events, err := s.fetchWithFallback(sport)
 		if err != nil {
 			s.log.Error("fetch failed", "sport", sport, "err", err)
@@ -95,9 +105,59 @@ func (s *Scheduler) fetchAll(ctx context.Context) {
 				continue
 			}
 
-			s.runEngine(ctx, dbMatch.ID)
+			if s.oddsChanged(dbMatch.ID, event) {
+				s.runEngine(ctx, dbMatch.ID)
+			}
 		}
 	}
+}
+
+// sportNeedsUpdate returns true if any active match in the sport is due for a fetch.
+// Skips the API call entirely when all matches were recently fetched.
+func (s *Scheduler) sportNeedsUpdate(ctx context.Context, sport string) bool {
+	matches, err := s.store.GetActiveMatchesBySport(ctx, sport)
+	if err != nil {
+		// Can't query DB — fetch anyway to be safe
+		return true
+	}
+	// No known matches: fetch once to discover new ones
+	if len(matches) == 0 {
+		return true
+	}
+	for _, m := range matches {
+		if s.shouldFetch(&m) {
+			return true
+		}
+	}
+	return false
+}
+
+// oddsChanged returns true if the odds for a match differ from the last seen hash.
+// Prevents running the engine when bookmakers haven't updated their lines.
+func (s *Scheduler) oddsChanged(matchID string, event RawEvent) bool {
+	h := oddsFingerprint(event)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prev, ok := s.oddsHash[matchID]
+	if !ok || prev != h {
+		s.oddsHash[matchID] = h
+		return true
+	}
+	return false
+}
+
+func oddsFingerprint(e RawEvent) string {
+	h := md5.New()
+	for _, bk := range e.Bookmakers {
+		fmt.Fprintf(h, "%s", bk.Key)
+		for _, m := range bk.Markets {
+			fmt.Fprintf(h, "%s", m.Key)
+			for _, o := range m.Outcomes {
+				fmt.Fprintf(h, "%s%.4f", o.Name, o.Price)
+			}
+		}
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
