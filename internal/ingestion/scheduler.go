@@ -42,9 +42,51 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 	}
 }
 
-// Trigger runs a single fetchAll cycle immediately (used by admin endpoint).
+// Trigger runs a single fetchAll cycle immediately, bypassing staleness checks.
 func (s *Scheduler) Trigger(ctx context.Context) {
-	s.fetchAll(ctx)
+	s.fetchForced(ctx)
+}
+
+func (s *Scheduler) fetchForced(ctx context.Context) {
+	for _, sport := range s.sports {
+		events, err := s.fetchWithFallback(sport)
+		if err != nil {
+			s.log.Error("fetch failed", "sport", sport, "err", err)
+			continue
+		}
+		s.markSportDiscovered(sport, len(events) > 0)
+		for _, event := range events {
+			match := store.Match{
+				ExternalID: event.ExternalID,
+				Sport:      event.Sport,
+				League:     event.League,
+				HomeTeam:   event.HomeTeam,
+				AwayTeam:   event.AwayTeam,
+				StartsAt:   event.CommenceTime,
+				Status:     inferStatus(event.CommenceTime),
+			}
+			if err := s.store.UpsertMatch(ctx, match); err != nil {
+				s.log.Error("upsert match", "id", event.ExternalID, "err", err)
+				continue
+			}
+			dbMatch, err := s.store.GetMatchByExternalID(ctx, event.ExternalID)
+			if err != nil {
+				s.log.Error("get match", "id", event.ExternalID, "err", err)
+				continue
+			}
+			if err := s.store.InsertOddsRaw(ctx, dbMatch.ID, "odds_api", event); err != nil {
+				s.log.Error("insert raw", "err", err)
+			}
+			normalized := Normalize(dbMatch.ID, event)
+			if err := s.store.InsertOddsNormalized(ctx, normalized); err != nil {
+				s.log.Error("insert normalized", "err", err)
+				continue
+			}
+			if s.oddsChanged(dbMatch.ID, event) {
+				s.runEngine(ctx, dbMatch.ID)
+			}
+		}
+	}
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
