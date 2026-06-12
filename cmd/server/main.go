@@ -63,15 +63,9 @@ func main() {
 	}
 
 	sports := []string{
-		// Soccer
-		"soccer_epl",
-		"soccer_spain_la_liga",
-		"soccer_italy_serie_a",
-		"soccer_germany_bundesliga",
 		"soccer_uefa_champs_league",
-		// Basketball
+		"soccer_fifa_world_cup",
 		"basketball_nba",
-		// Baseball
 		"baseball_mlb",
 	}
 
@@ -81,7 +75,7 @@ func main() {
 
 	go scheduler.Run(ctx)
 
-	handler := api.NewHandler(db, cfg.JWTSecret, ingester, predSvc, cfg.MLServiceURL, cfg.MLSecret)
+	handler := api.NewHandler(db, cfg.JWTSecret, ingester, predSvc, cfg.MLServiceURL, cfg.MLSecret, scheduler)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
 		Handler:      handler.Router(),

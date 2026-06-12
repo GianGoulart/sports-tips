@@ -23,8 +23,9 @@ type Scheduler struct {
 	predictions predictions.PredictionService
 	alerter     alerts.Alerter
 
-	mu       sync.Mutex
-	oddsHash map[string]string // matchID → md5 of latest odds
+	mu              sync.Mutex
+	oddsHash        map[string]string // matchID → md5 of latest odds
+	sportDiscovered map[string]time.Time // sport → last time API returned ≥1 event
 }
 
 func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string, log *slog.Logger, pred predictions.PredictionService, alerter alerts.Alerter) *Scheduler {
@@ -36,8 +37,14 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 		log:         log,
 		predictions: pred,
 		alerter:     alerter,
-		oddsHash:    make(map[string]string),
+		oddsHash:        make(map[string]string),
+		sportDiscovered: make(map[string]time.Time),
 	}
+}
+
+// Trigger runs a single fetchAll cycle immediately (used by admin endpoint).
+func (s *Scheduler) Trigger(ctx context.Context) {
+	s.fetchAll(ctx)
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
@@ -68,6 +75,8 @@ func (s *Scheduler) fetchAll(ctx context.Context) {
 			s.log.Error("fetch failed", "sport", sport, "err", err)
 			continue
 		}
+
+		s.markSportDiscovered(sport, len(events) > 0)
 
 		for _, event := range events {
 			match := store.Match{
@@ -114,14 +123,19 @@ func (s *Scheduler) fetchAll(ctx context.Context) {
 
 // sportNeedsUpdate returns true if any active match in the sport is due for a fetch.
 // Skips the API call entirely when all matches were recently fetched.
+// When no DB matches exist, rate-limits discovery calls to once per hour.
 func (s *Scheduler) sportNeedsUpdate(ctx context.Context, sport string) bool {
 	matches, err := s.store.GetActiveMatchesBySport(ctx, sport)
 	if err != nil {
-		// Can't query DB — fetch anyway to be safe
 		return true
 	}
-	// No known matches: fetch once to discover new ones
 	if len(matches) == 0 {
+		s.mu.Lock()
+		last, seen := s.sportDiscovered[sport]
+		s.mu.Unlock()
+		if seen && time.Since(last) < time.Hour {
+			return false
+		}
 		return true
 	}
 	for _, m := range matches {
@@ -130,6 +144,20 @@ func (s *Scheduler) sportNeedsUpdate(ctx context.Context, sport string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Scheduler) markSportDiscovered(sport string, found bool) {
+	if !found {
+		s.mu.Lock()
+		if _, seen := s.sportDiscovered[sport]; !seen {
+			s.sportDiscovered[sport] = time.Now()
+		}
+		s.mu.Unlock()
+	} else {
+		s.mu.Lock()
+		s.sportDiscovered[sport] = time.Now()
+		s.mu.Unlock()
+	}
 }
 
 // oddsChanged returns true if the odds for a match differ from the last seen hash.

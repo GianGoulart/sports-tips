@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -12,6 +13,10 @@ import (
 	"sportstips/internal/store"
 )
 
+type Triggerable interface {
+	Trigger(ctx context.Context)
+}
+
 type Handler struct {
 	store        *store.Store
 	jwtSecret    string
@@ -19,10 +24,11 @@ type Handler struct {
 	pred         predictions.PredictionService
 	mlServiceURL string
 	mlSecret     string
+	scheduler    Triggerable
 }
 
-func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService, mlServiceURL, mlSecret string) *Handler {
-	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred, mlServiceURL: mlServiceURL, mlSecret: mlSecret}
+func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService, mlServiceURL, mlSecret string, scheduler Triggerable) *Handler {
+	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred, mlServiceURL: mlServiceURL, mlSecret: mlSecret, scheduler: scheduler}
 }
 
 func (h *Handler) Router() *chi.Mux {
@@ -50,6 +56,7 @@ func (h *Handler) Router() *chi.Mux {
 
 	r.Post("/admin/results/sync", h.syncResults)
 	r.Post("/admin/ml/run", h.triggerML)
+	r.Post("/admin/ingest/run", h.triggerIngest)
 	r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"version": "v2-ml-trigger"})
 	})
