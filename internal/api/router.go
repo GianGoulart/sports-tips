@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"sportstips/internal/alerts"
 	"sportstips/internal/auth"
 	"sportstips/internal/predictions"
 	"sportstips/internal/results"
@@ -25,10 +26,11 @@ type Handler struct {
 	mlServiceURL string
 	mlSecret     string
 	scheduler    Triggerable
+	alerter      alerts.Alerter
 }
 
-func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService, mlServiceURL, mlSecret string, scheduler Triggerable) *Handler {
-	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred, mlServiceURL: mlServiceURL, mlSecret: mlSecret, scheduler: scheduler}
+func NewHandler(s *store.Store, jwtSecret string, ingester *results.Ingester, pred predictions.PredictionService, mlServiceURL, mlSecret string, scheduler Triggerable, alerter alerts.Alerter) *Handler {
+	return &Handler{store: s, jwtSecret: jwtSecret, ingester: ingester, pred: pred, mlServiceURL: mlServiceURL, mlSecret: mlSecret, scheduler: scheduler, alerter: alerter}
 }
 
 func (h *Handler) Router() *chi.Mux {
@@ -57,6 +59,7 @@ func (h *Handler) Router() *chi.Mux {
 	r.Post("/admin/results/sync", h.syncResults)
 	r.Post("/admin/ml/run", h.triggerML)
 	r.Post("/admin/ingest/run", h.triggerIngest)
+	r.Post("/admin/alerts/resend", h.resendAlerts)
 	r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"version": "v2-ml-trigger"})
 	})
