@@ -53,6 +53,19 @@ func (s *Store) GetActiveMatches(ctx context.Context) ([]Match, error) {
 	return matches, rows.Err()
 }
 
+func (s *Store) GetMatchByID(ctx context.Context, id string) (*Match, error) {
+	var m Match
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, external_id, sport, league, home_team, away_team, starts_at, status, last_fetched
+		FROM matches WHERE id = $1
+	`, id).Scan(&m.ID, &m.ExternalID, &m.Sport, &m.League,
+		&m.HomeTeam, &m.AwayTeam, &m.StartsAt, &m.Status, &m.LastFetched)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 func (s *Store) GetMatchByExternalID(ctx context.Context, externalID string) (*Match, error) {
 	var m Match
 	err := s.pool.QueryRow(ctx, `

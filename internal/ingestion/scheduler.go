@@ -295,8 +295,12 @@ func (s *Scheduler) runEngine(ctx context.Context, matchID string) {
 
 		// Send Telegram alerts if tenant has configured a chat ID
 		if prefs.TelegramID != nil && *prefs.TelegramID != "" {
+			matchLabel := matchID
+			if m, err := s.store.GetMatchByID(ctx, matchID); err == nil {
+				matchLabel = fmt.Sprintf("%s vs %s", m.HomeTeam, m.AwayTeam)
+			}
 			for _, sig := range signals {
-				msg := alerts.FormatSignal(sig.Type, sig.Market, matchID, sig.Data)
+				msg := alerts.FormatSignal(sig.Type, sig.Market, matchLabel, sig.Data)
 				if err := s.alerter.Send(*prefs.TelegramID, msg); err != nil {
 					s.log.Warn("telegram alert failed", "tenantID", tenant.ID, "err", err)
 				}
