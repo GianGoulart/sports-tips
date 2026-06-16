@@ -44,10 +44,12 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 
 // Trigger runs a single fetchAll cycle immediately, bypassing staleness checks.
 func (s *Scheduler) Trigger(ctx context.Context) {
-	s.fetchForced(ctx)
+	s.fetchForced(ctx, 0)
 }
 
-func (s *Scheduler) fetchForced(ctx context.Context) {
+// fetchForced fetches all sports ignoring staleness cache.
+// window > 0 filters events to only those starting within that duration.
+func (s *Scheduler) fetchForced(ctx context.Context, window time.Duration) {
 	for _, sport := range s.sports {
 		events, err := s.fetchWithFallback(sport)
 		if err != nil {
@@ -56,6 +58,9 @@ func (s *Scheduler) fetchForced(ctx context.Context) {
 		}
 		s.markSportDiscovered(sport, len(events) > 0)
 		for _, event := range events {
+			if window > 0 && time.Until(event.CommenceTime) > window {
+				continue
+			}
 			match := store.Match{
 				ExternalID: event.ExternalID,
 				Sport:      event.Sport,
@@ -100,10 +105,20 @@ func (s *Scheduler) Run(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			s.fetchAll(ctx)
+			if isNoon() {
+				s.log.Info("noon scan: fetching next-24h events")
+				s.fetchForced(ctx, 24*time.Hour)
+			}
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// isNoon returns true during the 12:00 minute (UTC).
+func isNoon() bool {
+	now := time.Now().UTC()
+	return now.Hour() == 12 && now.Minute() == 0
 }
 
 func (s *Scheduler) fetchAll(ctx context.Context) {
