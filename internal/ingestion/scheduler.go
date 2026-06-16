@@ -44,7 +44,7 @@ func NewScheduler(s *store.Store, primary, fallback OddsClient, sports []string,
 
 // Trigger runs a single fetchAll cycle immediately, bypassing staleness checks.
 func (s *Scheduler) Trigger(ctx context.Context) {
-	s.fetchForced(ctx, 0)
+	s.fetchForced(ctx, 24*time.Hour)
 }
 
 // fetchForced fetches all sports ignoring staleness cache.
